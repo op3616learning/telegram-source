@@ -1,0 +1,334 @@
+import { RefObject } from 'react';
+import React, {
+  FC, useLayoutEffect, useRef,
+} from '../../lib/teact/teact';
+import { getGlobal } from '../../lib/teact/teactn';
+
+import buildClassName from '../../util/buildClassName';
+import forceReflow from '../../util/forceReflow';
+import { waitForAnimationEnd, waitForTransitionEnd } from '../../util/cssAnimationEndListeners';
+import useForceUpdate from '../../hooks/useForceUpdate';
+import usePrevious from '../../hooks/usePrevious';
+import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
+
+import './Transition.scss';
+
+type ChildrenFn = (isActive: boolean, isFrom: boolean, currentKey: number) => any;
+export type TransitionProps = {
+  ref?: RefObject<HTMLDivElement>;
+  activeKey: number;
+  name: (
+    'none' | 'slide' | 'slide-rtl' | 'mv-slide' | 'slide-fade' | 'zoom-fade' | 'slide-layers'
+    | 'fade' | 'push-slide' | 'reveal' | 'slide-optimized' | 'slide-optimized-rtl'
+  );
+  direction?: 'auto' | 'inverse' | 1 | -1;
+  renderCount?: number;
+  shouldRestoreHeight?: boolean;
+  shouldCleanup?: boolean;
+  cleanupExceptionKey?: number;
+  isDisabled?: boolean;
+  id?: string;
+  className?: string;
+  onStart?: NoneToVoidFunction;
+  onStop?: NoneToVoidFunction;
+  children: ChildrenFn;
+};
+
+const CLEANED_UP = Symbol('CLEANED_UP');
+
+const classNames = {
+  active: 'Transition__slide--active',
+};
+
+const Transition: FC<TransitionProps> = ({
+  ref,
+  activeKey,
+  name,
+  direction = 'auto',
+  renderCount,
+  shouldRestoreHeight,
+  shouldCleanup,
+  cleanupExceptionKey,
+  id,
+  className,
+  onStart,
+  onStop,
+  children,
+}) => {
+  // No need for a container to update on change
+  const { animationLevel } = getGlobal().settings.byKey;
+  const currentKeyRef = useRef<number>();
+
+  // eslint-disable-next-line no-null/no-null
+  let containerRef = useRef<HTMLDivElement>(null);
+  if (ref) {
+    containerRef = ref;
+  }
+
+  const rendersRef = useRef<Record<number, ChildrenFn | typeof CLEANED_UP>>({});
+  const prevActiveKey = usePrevious<any>(activeKey);
+  const forceUpdate = useForceUpdate();
+
+  const activeKeyChanged = prevActiveKey !== undefined && activeKey !== prevActiveKey;
+
+  if (!renderCount && activeKeyChanged) {
+    rendersRef.current = { [prevActiveKey]: rendersRef.current[prevActiveKey] };
+  }
+
+  rendersRef.current[activeKey] = children;
+
+  useLayoutEffect(() => {
+    function cleanup() {
+      if (!shouldCleanup || (cleanupExceptionKey !== undefined && cleanupExceptionKey === prevActiveKey)) {
+        return;
+      }
+
+      rendersRef.current = { [prevActiveKey]: CLEANED_UP };
+      forceUpdate();
+    }
+
+    const container = containerRef.current!;
+
+    const childElements = container.children;
+    if (childElements.length === 1 && !activeKeyChanged) {
+      if (name.startsWith('slide-optimized')) {
+        (childElements[0] as HTMLElement).style.transition = 'none';
+        (childElements[0] as HTMLElement).style.transform = 'translate3d(0, 0, 0)';
+      }
+
+      childElements[0].classList.add(classNames.active);
+
+      return;
+    }
+
+    const childNodes = Array.from(container.childNodes);
+
+    if (!activeKeyChanged || !childNodes.length) {
+      return;
+    }
+
+    currentKeyRef.current = activeKey;
+
+    const isBackwards = (
+      direction === -1
+      || (direction === 'auto' && prevActiveKey > activeKey)
+      || (direction === 'inverse' && prevActiveKey < activeKey)
+    );
+
+    const keys = Object.keys(rendersRef.current).map(Number);
+    const prevActiveIndex = renderCount ? prevActiveKey : keys.indexOf(prevActiveKey);
+    const activeIndex = renderCount ? activeKey : keys.indexOf(activeKey);
+
+    if (name === 'slide-optimized' || name === 'slide-optimized-rtl') {
+      performSlideOptimized(
+        name,
+        isBackwards,
+        cleanup,
+        activeKey,
+        currentKeyRef,
+        container,
+        shouldRestoreHeight,
+        onStart,
+        onStop,
+        childNodes[activeIndex] as HTMLElement,
+        childNodes[prevActiveIndex] as HTMLElement,
+      );
+
+      return;
+    }
+
+    container.classList.remove('animating');
+    container.classList.toggle('backwards', isBackwards);
+
+    if (name === 'none' || animationLevel === 0) {
+      childNodes.forEach((node, i) => {
+        if (node instanceof HTMLElement) {
+          node.classList.remove('from', 'through', 'to');
+          node.classList.toggle(classNames.active, i === activeIndex);
+        }
+      });
+
+      cleanup();
+
+      return;
+    }
+
+    childNodes.forEach((node, i) => {
+      if (node instanceof HTMLElement) {
+        node.classList.remove(classNames.active);
+        node.classList.toggle('from', i === prevActiveIndex);
+        node.classList.toggle('through', (
+          (i > prevActiveIndex && i < activeIndex) || (i < prevActiveIndex && i > activeIndex)
+        ));
+        node.classList.toggle('to', i === activeIndex);
+      }
+    });
+
+    const dispatchHeavyAnimationStop = dispatchHeavyAnimationEvent();
+
+    requestAnimationFrame(() => {
+      container.classList.add('animating');
+
+      onStart?.();
+
+      function onAnimationEnd() {
+        requestAnimationFrame(() => {
+          if (activeKey !== currentKeyRef.current) {
+            return;
+          }
+
+          container.classList.remove('animating', 'backwards');
+
+          childNodes.forEach((node, i) => {
+            if (node instanceof HTMLElement) {
+              node.classList.remove('from', 'through', 'to');
+              node.classList.toggle(classNames.active, i === activeIndex);
+            }
+          });
+
+          if (shouldRestoreHeight) {
+            const activeElement = container.querySelector<HTMLDivElement>(`.${classNames.active}`);
+
+            if (activeElement) {
+              activeElement.style.height = 'auto';
+              container.style.height = `${activeElement.clientHeight}px`;
+            }
+          }
+
+          onStop?.();
+          dispatchHeavyAnimationStop();
+          cleanup();
+        });
+      }
+
+      const watchedNode = name === 'mv-slide'
+        ? childNodes[activeIndex]?.firstChild
+        : name === 'reveal' && isBackwards
+          ? childNodes[prevActiveIndex]
+          : childNodes[activeIndex];
+
+      if (watchedNode) {
+        waitForAnimationEnd(watchedNode, onAnimationEnd);
+      } else {
+        onAnimationEnd();
+      }
+    });
+  }, [
+    activeKey,
+    prevActiveKey,
+    activeKeyChanged,
+    direction,
+    name,
+    onStart,
+    onStop,
+    renderCount,
+    shouldRestoreHeight,
+    shouldCleanup,
+    cleanupExceptionKey,
+    animationLevel,
+    forceUpdate,
+  ]);
+
+  useLayoutEffect(() => {
+    if (shouldRestoreHeight) {
+      const container = containerRef.current!;
+      const activeElement = container.querySelector<HTMLDivElement>(`.${classNames.active}`)
+        || container.querySelector<HTMLDivElement>('.from');
+
+      if (activeElement) {
+        activeElement.style.height = 'auto';
+        container.style.height = `${activeElement.clientHeight}px`;
+        container.style.flexBasis = `${activeElement.clientHeight}px`;
+      }
+    }
+  }, [shouldRestoreHeight, children]);
+
+  const renders = rendersRef.current;
+  const collection = Object.keys(renderCount ? new Array(renderCount).fill(undefined) : renders).map(Number);
+
+  const contents = collection.map((key) => {
+    const render = renders[key];
+
+    return (
+      typeof render === 'function' ? (
+        <div key={key} teactOrderKey={key}>{render(key === activeKey, key === prevActiveKey, activeKey)}</div>
+      ) : undefined
+    );
+  });
+
+  return (
+    <div
+      ref={containerRef}
+      id={id}
+      className={buildClassName('Transition', className, name)}
+      teactFastList={!renderCount && !shouldCleanup}
+    >
+      {contents}
+    </div>
+  );
+};
+
+export default Transition;
+
+function performSlideOptimized(
+  name: 'slide-optimized' | 'slide-optimized-rtl',
+  isBackwards: boolean,
+  cleanup: NoneToVoidFunction,
+  activeKey: number,
+  currentKeyRef: { current: number | undefined },
+  container: HTMLElement,
+  shouldRestoreHeight?: boolean,
+  onStart?: NoneToVoidFunction,
+  onStop?: NoneToVoidFunction,
+  currentSlide?: HTMLElement,
+  prevSlide?: HTMLElement,
+) {
+  if (!prevSlide || !currentSlide) {
+    return;
+  }
+
+  if (name === 'slide-optimized-rtl') {
+    isBackwards = !isBackwards;
+  }
+
+  const dispatchHeavyAnimationStop = dispatchHeavyAnimationEvent();
+
+  requestAnimationFrame(() => {
+    onStart?.();
+
+    prevSlide.style.transition = 'none';
+    prevSlide.style.transform = 'translate3d(0, 0, 0)';
+
+    currentSlide.style.transition = 'none';
+    currentSlide.style.transform = `translate3d(${isBackwards ? '-' : ''}100%, 0, 0)`;
+
+    forceReflow(currentSlide);
+
+    prevSlide.style.transition = '';
+    prevSlide.style.transform = `translate3d(${isBackwards ? '' : '-'}100%, 0, 0)`;
+
+    currentSlide.style.transition = '';
+    currentSlide.style.transform = 'translate3d(0, 0, 0)';
+
+    prevSlide.classList.remove(classNames.active);
+    currentSlide.classList.add(classNames.active);
+
+    waitForTransitionEnd(prevSlide, () => {
+      if (activeKey !== currentKeyRef.current) {
+        return;
+      }
+
+      prevSlide.style.transition = 'none';
+      prevSlide.style.transform = '';
+
+      if (shouldRestoreHeight) {
+        currentSlide.style.height = 'auto';
+        container.style.height = `${currentSlide.clientHeight}px`;
+      }
+
+      onStop?.();
+      dispatchHeavyAnimationStop();
+      cleanup();
+    });
+  });
+}

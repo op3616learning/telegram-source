@@ -1,0 +1,211 @@
+.Chat {
+  --background-color: var(--color-background);
+
+  body.is-ios &,
+  body.is-macos & {
+    --color-text-meta: var(--color-text-meta-apple);
+  }
+
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  width: 100%;
+
+  &.animate-opacity {
+    will-change: opacity;
+    transition: opacity .2s ease-out;
+  }
+
+  &.animate-transform {
+    will-change: transform;
+    transition: transform .2s ease-out;
+  }
+
+  &:hover, &.ListItem.has-menu-open {
+    .Avatar.online::after {
+      border-color: var(--color-chat-hover);
+    }
+  }
+
+  @media (max-width: 600px) {
+    &.selected {
+      --background-color: var(--color-chat-hover) !important;
+
+      .Avatar.online::after {
+        border-color: var(--color-chat-hover);
+      }
+    }
+  }
+
+  @media (min-width: 600px) {
+    &.selected,
+    &.selected:hover {
+      --background-color: var(--color-chat-active) !important;
+
+      .Avatar.online::after {
+        border-color: var(--color-chat-active) !important;
+        background: var(--color-white);
+      }
+
+      .ListItem-button {
+        --background-color: var(--color-chat-active) !important;
+        --color-text: var(--color-white);
+        --color-text-meta-colored: var(--color-white);
+        --color-text-meta: var(--color-white);
+        --color-text-secondary: var(--color-white);
+        --color-error: var(--color-white);
+        --color-pinned: var(--color-white);
+      }
+
+      .icon-muted {
+        color: var(--color-white) !important;
+      }
+
+      .Badge:not(.pinned) {
+        background: var(--color-white);
+        color: var(--color-chat-active);
+      }
+    }
+  }
+
+  @media (max-width: 600px) {
+    .ListItem-button {
+      border-radius: 0 !important;
+    }
+  }
+
+  .status {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .info {
+    .subtitle {
+      margin-top: -.125rem;
+    }
+
+    h3 {
+      width: auto;
+      max-width: 80%;
+    }
+
+    .icon-muted {
+      font-size: 1.25rem;
+      margin-left: 0.25rem;
+      margin-top: -.0625rem;
+      color: #C6C8CA;
+
+      body.is-ios & {
+        margin-top: 0;
+        margin-right: .5rem;
+      }
+    }
+
+    .LastMessageMeta {
+      margin-left: auto;
+
+      body.is-ios & {
+        font-size: .875rem;
+        margin-right: 0;
+      }
+    }
+
+    .last-message, .typing-status {
+      padding-right: 0.25rem;
+      flex-grow: 1;
+      color: var(--color-text-secondary);
+      unicode-bidi: plaintext;
+
+      &[dir=ltr] {
+        text-align: left;
+      }
+
+      .sender-name {
+        color: var(--color-text);
+      }
+
+      .draft {
+        color: var(--color-error);
+      }
+    }
+
+    .last-message {
+      .draft {
+        &::after {
+          content: ': ';
+        }
+      }
+
+      .colon {
+        margin-inline-end: .25rem;
+      }
+
+      img {
+        width: 1.25rem;
+        height: 1.25rem;
+        object-fit: cover;
+        border-radius: .125rem;
+        vertical-align: -.25rem;
+        margin-inline-end: .25rem;
+
+        body.is-ios & {
+          width: 1.125rem;
+          height: 1.125rem;
+          vertical-align: -.1875rem;
+        }
+
+        &.round {
+          border-radius: .625rem;
+        }
+      }
+
+      .emoji-small {
+        width: 1rem;
+        height: 1rem;
+        vertical-align: -.125rem;
+      }
+
+      .icon-play {
+        position: relative;
+        display: inline-block;
+        font-size: .75rem;
+        color: #fff;
+        margin-inline-start: -1.25rem;
+        margin-inline-end: 0.5rem;
+        bottom: 0.0625rem;
+
+        body.is-ios & {
+          margin-inline-start: -1.125rem;
+          bottom: 0;
+        }
+      }
+    }
+  }
+
+  &[dir=rtl] {
+    .info {
+      .LastMessageMeta {
+        margin-left: 0;
+        margin-right: auto;
+      }
+
+      .title, .subtitle {
+        padding-left: .15rem;
+        padding-right: 0;
+      }
+
+      .icon-muted {
+        margin-left: 0;
+        margin-right: 0.25rem;
+      }
+
+      .last-message, .typing-status {
+        padding-left: 0.5rem;
+        padding-right: 0;
+        text-align: right;
+        unicode-bidi: plaintext;
+      }
+    }
+  }
+}

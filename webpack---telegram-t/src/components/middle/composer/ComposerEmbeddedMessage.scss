@@ -1,0 +1,37 @@
+.ComposerEmbeddedMessage {
+  height: 2.625rem;
+  transition: height 150ms ease-out, opacity 150ms ease-out;
+
+  .select-mode-active + .middle-column-footer & {
+    display: none;
+  }
+
+  &:not(.open) {
+    height: 0 !important;
+  }
+
+  body.animation-level-0 & {
+    transition: none !important;
+  }
+
+  & > div {
+    display: flex;
+    align-items: center;
+    padding-right: 0.625rem;
+    padding-top: 0.1875rem;
+  }
+
+  & > div > .Button {
+    flex-shrink: 0;
+    background: none !important;
+    width: 3.5rem;
+    height: 2.875rem;
+    margin: 0 -0.0625rem 0 0;
+    padding: 0;
+    align-self: center;
+
+    @media (max-width: 600px) {
+      width: 2.875rem;
+    }
+  }
+}

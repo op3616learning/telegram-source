@@ -1,0 +1,89 @@
+.MenuItem {
+  width: 100%;
+  background: none;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  display: flex;
+  padding: 0.75rem 1rem;
+  position: relative;
+  overflow: hidden;
+  line-height: 1.5rem;
+  white-space: nowrap;
+  color: var(--color-text);
+  --ripple-color: rgba(0, 0, 0, .08);
+  cursor: pointer;
+  unicode-bidi: plaintext;
+
+  @media (hover: hover) {
+    &:hover, &:focus {
+      background-color: var(--color-chat-hover);
+      text-decoration: none;
+      color: inherit;
+    }
+  }
+
+  @media (max-width: 600px) {
+    &:focus, &:hover, &:active {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    &:active {
+      background-color: var(--color-chat-hover);
+    }
+  }
+
+  i {
+    font-size: 1.5rem;
+    margin-right: 2rem;
+    color: var(--color-text-secondary);
+  }
+
+  .menu-item-name {
+    margin-right: 2rem;
+
+    &.capitalize {
+      text-transform: capitalize;
+    }
+  }
+
+  &.disabled {
+    opacity: 0.5 !important;
+    cursor: default !important;
+  }
+
+  &.destructive {
+    color: var(--color-error);
+
+    i {
+      color: inherit;
+    }
+  }
+
+  &:not(.has-ripple):not(.disabled):active {
+    background-color: var(--color-item-active);
+    transition: none !important;
+  }
+
+  & > .Switcher {
+    margin-left: auto;
+  }
+
+  &[dir=rtl] {
+    i {
+      margin-left: 2rem;
+      margin-right: 0;
+    }
+
+    .menu-item-name {
+      margin-left: 2rem;
+      margin-right: 0;
+    }
+
+    > .Switcher {
+      margin-left: 0;
+      margin-right: auto;
+    }
+  }
+}
